@@ -2,7 +2,7 @@
 
 An early, open-source catalog of useful **2D and 3D game-asset links** for AI-agent discovery. This is an index of destinations, collections and assets—not an asset file mirror or a general-purpose web crawler.
 
-> **Status:** Session 3 local prototype. The catalog contains reproducible seeds for **45 real link records** (35 Poly Haven 3D models and 10 Kenney 2D packs) and an official Poly Haven API adapter. Search now has weighted relevance, evidence-aware filters, source-directory fallback, and a PostgreSQL full-text index migration. A live hosted PostgreSQL deployment, REST API and MCP tools are planned for later sessions.
+> **Status:** Session 4 local prototype. The catalog contains reproducible seeds for **45 real link records** (35 Poly Haven 3D models and 10 Kenney 2D packs), explainable filtered search, and a PostgreSQL full-text migration. A **read-only REST API and MCP tools** now let local AI agents query it. Public hosting, authentication and production PostgreSQL validation are not complete.
 
 ## Setup
 
@@ -20,6 +20,47 @@ uv run assetindex search "3d flying dragon animation" --with-sources --json
 uv run assetindex evaluate
 uv run pytest
 ```
+
+## REST API and AI-agent tools (Session 4)
+
+After initializing and importing the catalog above, launch the read-only service:
+
+```bash
+uv run assetindex-api
+```
+
+It binds to **127.0.0.1:8000**, not a public interface. You can browse the interactive API documentation at <http://127.0.0.1:8000/docs> and try:
+
+```bash
+curl 'http://127.0.0.1:8000/healthz'
+curl 'http://127.0.0.1:8000/v1/assets/search?q=3d%20binoculars&limit=3'
+curl 'http://127.0.0.1:8000/v1/assets/search?q=3d%20flying%20dragon%20animation'
+curl 'http://127.0.0.1:8000/v1/sources/search?q=2d%20zombie%20sprites'
+curl 'http://127.0.0.1:8000/v1/assets/1'
+```
+
+These endpoints return structured JSON with canonical URLs, source attribution, formats (when known), license ID/evidence/status and relevance reasons. Pending or rejected resources are **never** exposed by the agent APIs. Query validation returns 422 for bad filters, missing resources return 404, and an unavailable database returns 503 without leaking connection details. OpenAPI is at `/openapi.json`.
+
+The same server also exposes the official **MCP Streamable HTTP** protocol on <http://127.0.0.1:8000/mcp>. Tools: `search_assets`, `find_sources`, and `get_asset`. A local AI client can instead launch the MCP stdio server:
+
+```bash
+uv run assetindex-mcp
+```
+
+For a host supporting `mcpServers`, the equivalent configuration is:
+
+```json
+{
+  "mcpServers": {
+    "indexAI": {
+      "command": "/absolute/path/to/asset-compass/.venv/bin/assetindex-mcp",
+      "env": {"ASSET_COMPASS_DB_URL": "sqlite:////absolute/path/to/asset-compass/catalog.sqlite3"}
+    }
+  }
+}
+```
+
+Use real **absolute paths** in a host configuration; a relative SQLite database URL depends on the working directory. Both protocols only read the database. No API key, rate limiting, TLS or public-host authorization exists yet: **keep this build on localhost; do not expose it directly to the internet**. See [Session 4 setup and verification](docs/SESSION4.md).
 
 Alternatively, use `python -m pip install -e '.[dev]'` and run `assetindex` directly. Local seed imports do **not** fetch webpages, so the 45-link example catalog is reproducible offline.
 
@@ -114,6 +155,8 @@ Use `--overwrite` only when you intend to replace an existing export. Reimportin
 | `assetindex search QUERY [filters]` | Rank approved stored resources |
 | `assetindex find-sources QUERY [filters]` | Recommend relevant source directories, including unindexed topics |
 | `assetindex evaluate [FILE]` | Run reproducible relevance and fallback benchmark |
+| `assetindex-api` | Start local read-only REST + Streamable HTTP MCP server |
+| `assetindex-mcp` | Start read-only MCP tools over stdio for a local agent host |
 | `assetindex seed-demo` | Add 10 synthetic demonstration records |
 | `assetindex ingest polyhaven --limit 35` | Discover and save real 3D model links from the official API |
 | `assetindex ingest file FILE [--dry-run]` | Validate and import curated JSON/CSV links |
@@ -134,13 +177,17 @@ The [Session 2 report](docs/SESSION2.md) records live-API ingestion, the two sou
 
 The [Session 3 report](docs/SESSION3.md) documents indexed PostgreSQL FTS SQL, weighted ranking, exact-match filters and a 33-query evaluation using the 45 seed links. The benchmark assesses known queries and explicit no-hit routing, not unseen-domain quality. Tests run locally with SQLite and compile (but cannot execute) the PostgreSQL-specific SQL.
 
+## Session 4 verification
+
+The [Session 4 report](docs/SESSION4.md) describes the REST/MCP contracts, HTTP JSON-RPC integration tests, localhost security boundaries and remaining steps before a publicly reachable service. The MCP stdio entry point is configured and test-inspected; a full subprocess stdio round trip requires an environment with working asynchronous subprocess/pipe handling.
+
 ## Roadmap
 
 1. **Complete:** Foundation with local catalog, tags, sources/resources, curator CLI and tests.
 2. **Complete:** Poly Haven official API ingestion, Kenney curated seed, provenance fields and 45 real links.
 3. **Complete locally:** PostgreSQL full-text index migration, relevance ranking, source fallback, strict filters and evaluation.
-4. **Next:** REST API and read-only MCP agent tools.
-5. Catalog expansion and link health checks (basic exports already available).
+4. **Complete locally:** Read-only REST API, MCP Streamable HTTP and stdio tools, source/rights attribution, validation and integration tests.
+5. **Next:** Catalog expansion and link health checks (basic exports already available).
 6. Security, benchmark tests, backups and recovery.
 7. Live deployment, monitoring and documentation.
 

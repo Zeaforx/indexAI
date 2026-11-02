@@ -14,13 +14,17 @@ dependencies = [
   "alembic>=1.13,<2",
   "typer>=0.12,<1",
   "psycopg[binary]>=3.1,<4",
+  "fastapi>=0.115,<1",
+  "mcp>=2,<3",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<10"]
+dev = ["pytest>=8,<10", "httpx>=0.27,<1"]
 
 [project.scripts]
 assetindex = "asset_compass.cli:app"
+assetindex-api = "asset_compass.api:main"
+assetindex-mcp = "asset_compass.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/asset_compass"]
