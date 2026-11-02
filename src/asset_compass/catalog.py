@@ -1,11 +1,10 @@
-"""Catalog commands, invariants and the first deterministic search implementation."""
+"""Catalog commands, provenance validation and searchable asset/source routes."""
 
-import re
-
-from sqlalchemy import select
+from sqlalchemy import func, literal_column, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from .models import Resource, Source, Tag, resource_dict
+from .relevance import infer_dimension, query_terms, rarity_weights, score_resource
 from .taxonomy import (
     ACCESS_TYPES, DIMENSIONS, KINDS, LICENSE_STATUSES, REVIEW_METHODS,
     REVIEW_STATUSES, normalize_tag, parse_formats, parse_tags, require_choice,
@@ -199,8 +198,32 @@ def review_resource(
     return resource
 
 
-def _words(value: str) -> set[str]:
-    return set(re.findall(r"[a-z0-9]+", value.lower()))
+SOURCE_BROWSE_URLS = {
+    "https://polyhaven.com/": "https://polyhaven.com/models",
+    "https://kenney.nl/": "https://kenney.nl/assets",
+}
+
+
+def _fts_candidates(terms: set[str]):
+    """PostgreSQL GIN-backed FTS, augmented by tag-only matches.
+
+    The GIN expression is installed by revision 0003. Tags remain relational so
+    they can be searched even when absent from an asset's title or description.
+    """
+    english = literal_column("'english'::regconfig")
+    blank = literal_column("''")
+    document = func.to_tsvector(
+        english,
+        func.coalesce(Resource.title, blank) + literal_column("' '")
+        + func.coalesce(Resource.description, blank),
+    )
+    # Each term is optional (OR), preserving partial recall for longer prompts.
+    expression = " OR ".join(sorted(term.replace("-", " ") for term in terms))
+    fts = document.op("@@")(func.websearch_to_tsquery(english, expression))
+    # LIKE is a recall-only candidate path (tree -> trees, forest -> rainforest).
+    # The final exact-normalized ranker discards false positive substrings.
+    tag_candidates = or_(*(Tag.slug.ilike(f"%{term}%") for term in sorted(terms)))
+    return or_(fts, Resource.tags.any(tag_candidates))
 
 
 def search_resources(
@@ -210,20 +233,44 @@ def search_resources(
     dimension: str | None = None,
     kind: str | None = None,
     tag: str | None = None,
+    style: str | None = None,
+    subject: str | None = None,
+    format: str | None = None,
     access: str | None = None,
+    license_id: str | None = None,
+    license_status: str | None = None,
     include_pending: bool = False,
     limit: int = 10,
 ) -> list[dict]:
-    """Small-catalog search. Session 3 replaces this with PostgreSQL FTS."""
+    """Search with strict filters and explainable, age-neutral lexical ranking.
+
+    PostgreSQL uses indexed FTS to select candidates; SQLite scans approved rows.
+    Both databases apply identical deterministic scoring and filters afterward.
+    Unknown formats never satisfy a format request.
+    """
     if not 1 <= limit <= 100:
         raise CatalogError("Limit must be between 1 and 100")
+    if len(query) > 500:
+        raise CatalogError("Search query must not exceed 500 characters")
     if dimension:
         dimension = require_choice(dimension, DIMENSIONS, "dimension")
+    else:
+        dimension = infer_dimension(query)
     if kind:
         kind = require_choice(kind, KINDS, "kind")
     if access:
         access = require_choice(access, ACCESS_TYPES, "access")
+    if license_status:
+        license_status = require_choice(license_status, LICENSE_STATUSES, "license status")
     tag = normalize_tag(tag) if tag else None
+    style = normalize_tag(style) if style else None
+    subject = normalize_tag(subject) if subject else None
+    if format is not None:
+        parsed_formats = parse_formats(format)
+        if len(parsed_formats) != 1:
+            raise CatalogError("Choose one format, e.g. glb, fbx or png")
+        format = parsed_formats[0]
+    terms = query_terms(query)
     statement = select(Resource).options(
         selectinload(Resource.source), selectinload(Resource.tags)
     )
@@ -235,26 +282,94 @@ def search_resources(
         statement = statement.where(Resource.kind == kind)
     if access:
         statement = statement.where(Resource.access_type == access)
+    if license_status:
+        statement = statement.where(Resource.license_status == license_status)
+    if license_id:
+        statement = statement.where(func.lower(Resource.license_id) == license_id.casefold())
+    if terms and session.bind is not None and session.bind.dialect.name == "postgresql":
+        statement = statement.where(_fts_candidates(terms))
 
-    query_words = _words(query)
-    scored = []
+    candidates = []
     for resource in session.scalars(statement):
         tags = {item.slug for item in resource.tags}
-        if tag and tag not in tags:
+        if any(value and value not in tags for value in (tag, style, subject)):
             continue
-        title_words = _words(resource.title)
-        tag_words = _words(" ".join(tags))
-        description_words = _words(resource.description)
-        score = (
-            4 * len(query_words & title_words)
-            + 3 * len(query_words & tag_words)
-            + len(query_words & description_words)
-        )
-        if query_words and score == 0:
+        if format and format not in resource.formats:
+            continue
+        candidates.append(resource)
+    weights = rarity_weights(candidates, terms) if terms else {}
+    scored = []
+    for resource in candidates:
+        score, reasons = score_resource(resource, terms, weights)
+        if terms and score == 0:
             continue
         data = resource_dict(resource)
         data["score"] = score
+        data["match_reasons"] = reasons
         scored.append(data)
     scored.sort(key=lambda item: (-item["score"], item["title"].casefold(), item["id"]))
     return scored[:limit]
+
+
+def find_sources(
+    session: Session,
+    query: str,
+    *,
+    dimension: str | None = None,
+    kind: str | None = None,
+    limit: int = 5,
+) -> list[dict]:
+    """Route the user to relevant *source directories*, not invented asset URLs.
+
+    A source may cover a dimension even when the requested topic is absent from
+    our snapshot. The response clearly distinguishes this from an indexed match.
+    """
+    if not 1 <= limit <= 100:
+        raise CatalogError("Limit must be between 1 and 100")
+    if len(query) > 500:
+        raise CatalogError("Search query must not exceed 500 characters")
+    dimension = require_choice(dimension, DIMENSIONS, "dimension") if dimension else infer_dimension(query)
+    kind = require_choice(kind, KINDS, "kind") if kind else None
+    terms = query_terms(query)
+    sources = session.scalars(
+        select(Source).options(selectinload(Source.resources).selectinload(Resource.tags))
+    )
+    results = []
+    for source in sources:
+        approved = [r for r in source.resources if r.review_status == "approved"]
+        if not approved:
+            continue
+        covered_dimensions = sorted({r.dimension for r in approved})
+        covered_kinds = sorted({r.kind for r in approved})
+        if dimension and dimension != "both" and not any(
+            r.dimension in (dimension, "both") for r in approved
+        ):
+            continue
+        matching = []
+        for resource in approved:
+            if dimension and dimension != "both" and resource.dimension not in (dimension, "both"):
+                continue
+            score, _ = score_resource(resource, terms)
+            if (not kind or resource.kind == kind) and (not terms or score > 0):
+                matching.append(score)
+        match_count = len(matching)
+        result = {
+            "name": source.name,
+            "url": source.canonical_url,
+            "browse_url": SOURCE_BROWSE_URLS.get(source.canonical_url, source.canonical_url),
+            "policy_url": source.policy_url,
+            "attribution_notice": source.attribution_notice,
+            "covered_dimensions": covered_dimensions,
+            "covered_kinds": covered_kinds,
+            "indexed_matches": match_count,
+            "match_basis": "indexed matches" if match_count else "dimension coverage only",
+            "verification_notice": "Directory recommendation only. Individual asset availability, formats and licensing must be checked at the source.",
+            "reason": (
+                f"{match_count} approved indexed link(s) overlap the request; browse for more."
+                if match_count else "This source has relevant dimension coverage; the requested topic is not confirmed in this index."
+            ),
+        }
+        results.append((max(matching, default=0), result))
+    results.sort(key=lambda pair: (-pair[0], -pair[1]["indexed_matches"], pair[1]["name"].casefold()))
+    return [result for _, result in results[:limit]]
 

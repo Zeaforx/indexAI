@@ -1,4 +1,4 @@
-"""Curator commands. No third-party pages are fetched in Session 1."""
+"""Curator and discovery commands. Search runs against locally stored metadata."""
 
 import json
 from pathlib import Path
@@ -9,9 +9,10 @@ from sqlalchemy.exc import OperationalError
 
 from .catalog import (
     CatalogError, add_resource, add_source, annotate_resource, get_resource,
-    list_sources, review_resource, search_resources,
+    find_sources, list_sources, review_resource, search_resources,
 )
 from .db import initialize, make_engine, open_session
+from .evaluation import run_evaluation
 from .ingestion.batch import export_records, import_records, load_records
 from .ingestion.polyhaven import IngestionError, fetch_model_listing, select_models
 from .models import Resource, resource_dict
@@ -254,26 +255,95 @@ def search(
     dimension: str | None = typer.Option(None, "--dimension"),
     kind: str | None = typer.Option(None, "--kind"),
     tag: str | None = typer.Option(None, "--tag"),
+    style: str | None = typer.Option(None, "--style", help="Exact style tag, e.g. pixel-art"),
+    subject: str | None = typer.Option(None, "--subject", help="Exact subject tag, e.g. forest"),
+    format: str | None = typer.Option(None, "--format", help="Known download format (strict match)"),
     access: str | None = typer.Option(None, "--access"),
+    license_id: str | None = typer.Option(None, "--license", help="License identifier, e.g. CC0-1.0"),
+    license_status: str | None = typer.Option(None, "--license-status", help="unknown, claimed, verified"),
     include_pending: bool = typer.Option(False, "--include-pending"),
     limit: int = typer.Option(10, "--limit"),
     as_json: bool = typer.Option(False, "--json"),
+    with_sources: bool = typer.Option(False, "--with-sources", help="Return source recommendations alongside resource hits (JSON object)"),
 ) -> None:
     try:
         with open_session(make_engine()) as session:
             items = search_resources(
                 session, query, dimension=dimension, kind=kind, tag=tag,
-                access=access, include_pending=include_pending, limit=limit,
+                style=style, subject=subject, format=format, access=access,
+                license_id=license_id, license_status=license_status,
+                include_pending=include_pending, limit=limit,
             )
+            sources = find_sources(session, query, dimension=dimension, kind=kind) if not items or with_sources else []
         if as_json:
-            _output(items, as_json=True)
+            _output({"resources": items, "sources": sources} if with_sources else items, as_json=True)
         else:
             if not items:
-                _output("No matching approved resources. Try --include-pending for curator records.")
+                _output("No exact approved indexed resource. Broader source directories to explore:")
+                if not sources:
+                    _output("No matching catalog sources; try adding a curated source.")
+                for source in sources:
+                    typer.echo(f"   {source['name']} — {source['browse_url']} ({source['match_basis']})")
             for item in items:
                 typer.echo(f"#{item['id']} [{item['dimension']}/{item['kind']}] {item['title']} (score {item['score']})")
                 typer.echo(f"   {item['url']} | tags: {', '.join(item['tags'])}")
+                typer.echo(f"   Matched: {', '.join(item['match_reasons'])}")
+            if items and with_sources:
+                typer.echo("Browse related sources:")
+                for source in sources:
+                    typer.echo(f"   {source['name']} — {source['browse_url']}")
     except (ValueError, OperationalError) as exc:
+        _fail(exc)
+
+
+@app.command("find-sources")
+def find_sources_cmd(
+    query: str = typer.Argument(..., help="What type of 2D/3D assets are you seeking?"),
+    dimension: str | None = typer.Option(None, "--dimension"),
+    kind: str | None = typer.Option(None, "--kind"),
+    limit: int = typer.Option(5, "--limit"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Recommend indexed source directories even when no exact link exists."""
+    try:
+        with open_session(make_engine()) as session:
+            sources = find_sources(session, query, dimension=dimension, kind=kind, limit=limit)
+        if as_json:
+            _output(sources, as_json=True)
+        elif not sources:
+            _output("No matching source directory indexed yet.")
+        else:
+            for source in sources:
+                typer.echo(f"{source['name']}: {source['browse_url']}")
+                typer.echo(f"   {source['reason']}")
+    except (ValueError, OperationalError) as exc:
+        _fail(exc)
+
+
+@app.command("evaluate")
+def evaluate(
+    path: Path = typer.Argument(Path("data/evaluation_queries.json"), help="JSON benchmark with a cases array"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Measure top-five indexed asset hits and no-hit source routing."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        cases = payload.get("cases") if isinstance(payload, dict) else None
+        if not isinstance(cases, list):
+            raise ValueError("Evaluation file must contain a cases array")
+        with open_session(make_engine()) as session:
+            report = run_evaluation(session, cases)
+        if as_json:
+            _output(report, as_json=True)
+        else:
+            typer.echo(f"Search benchmark: {report['passed']}/{report['cases']} scenarios passed")
+            typer.echo(f"Asset hit@5: {report['asset_hit_at_5']:.1%}; source fallback: {report['source_fallback_rate']:.1%}")
+            for case in report["details"]:
+                if not case["passed"]:
+                    typer.echo(f"   MISS: {case['query']} (expected {case['expected']}; got {case['top_results']})")
+        if report["passed"] != report["cases"]:
+            raise typer.Exit(code=1)
+    except (ValueError, OperationalError, OSError, json.JSONDecodeError) as exc:
         _fail(exc)
 
 
