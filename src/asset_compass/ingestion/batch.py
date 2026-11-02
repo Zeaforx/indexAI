@@ -96,7 +96,10 @@ def import_records(session: Session, rows: Iterable[dict], *, dry_run: bool = Fa
                     description=str(row.get("source_description") or ""),
                     policy_url=str(row.get("source_policy_url") or "") or None,
                     ingestion_method="official_api" if row.get("metadata_source") == "official_api" else "import",
-                    attribution_notice="Powered by Poly Haven" if row.get("source_name") == "Poly Haven" else "",
+                    attribution_notice=(
+                        "Powered by Poly Haven" if row.get("source_name") == "Poly Haven"
+                        else "Assets from ambientCG" if row.get("source_name") == "ambientCG" else ""
+                    ),
                 )
                 resource, created = add_resource(
                     session, source_id=source.id, url=row["url"],

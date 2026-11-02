@@ -201,7 +201,17 @@ def review_resource(
 SOURCE_BROWSE_URLS = {
     "https://polyhaven.com/": "https://polyhaven.com/models",
     "https://kenney.nl/": "https://kenney.nl/assets",
+    "https://ambientcg.com/": "https://ambientcg.com/list",
 }
+
+
+def _browse_url(source: Source, terms: set[str], kind: str | None) -> str:
+    if source.canonical_url == "https://polyhaven.com/":
+        if kind in ("texture", "material") or terms & {"texture", "pbr", "material"}:
+            return "https://polyhaven.com/textures"
+        if kind == "environment" or terms & {"hdri", "skybox", "lighting"}:
+            return "https://polyhaven.com/hdris"
+    return SOURCE_BROWSE_URLS.get(source.canonical_url, source.canonical_url)
 
 
 def _fts_candidates(terms: set[str]):
@@ -331,6 +341,10 @@ def find_sources(
     dimension = require_choice(dimension, DIMENSIONS, "dimension") if dimension else infer_dimension(query)
     kind = require_choice(kind, KINDS, "kind") if kind else None
     terms = query_terms(query)
+    if kind is None:
+        inferred_kinds = terms & KINDS
+        if len(inferred_kinds) == 1:
+            kind = next(iter(inferred_kinds))
     sources = session.scalars(
         select(Source).options(selectinload(Source.resources).selectinload(Resource.tags))
     )
@@ -353,23 +367,27 @@ def find_sources(
             if (not kind or resource.kind == kind) and (not terms or score > 0):
                 matching.append(score)
         match_count = len(matching)
+        kind_covered = bool(kind and kind in covered_kinds)
         result = {
             "name": source.name,
             "url": source.canonical_url,
-            "browse_url": SOURCE_BROWSE_URLS.get(source.canonical_url, source.canonical_url),
+            "browse_url": _browse_url(source, terms, kind),
             "policy_url": source.policy_url,
             "attribution_notice": source.attribution_notice,
             "covered_dimensions": covered_dimensions,
             "covered_kinds": covered_kinds,
             "indexed_matches": match_count,
-            "match_basis": "indexed matches" if match_count else "dimension coverage only",
+            "match_basis": (
+                "indexed matches" if match_count else
+                "kind and dimension coverage" if kind_covered else "dimension coverage only"
+            ),
             "verification_notice": "Directory recommendation only. Individual asset availability, formats and licensing must be checked at the source.",
             "reason": (
                 f"{match_count} approved indexed link(s) overlap the request; browse for more."
                 if match_count else "This source has relevant dimension coverage; the requested topic is not confirmed in this index."
             ),
         }
-        results.append((max(matching, default=0), result))
-    results.sort(key=lambda pair: (-pair[0], -pair[1]["indexed_matches"], pair[1]["name"].casefold()))
-    return [result for _, result in results[:limit]]
+        results.append((max(matching, default=0), int(kind_covered), result))
+    results.sort(key=lambda pair: (-pair[0], -pair[2]["indexed_matches"], -pair[1], pair[2]["name"].casefold()))
+    return [result for _, _, result in results[:limit]]
 

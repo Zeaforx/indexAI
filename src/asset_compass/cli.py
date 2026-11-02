@@ -14,7 +14,9 @@ from .catalog import (
 from .db import initialize, make_engine, open_session
 from .evaluation import run_evaluation
 from .ingestion.batch import export_records, import_records, load_records
-from .ingestion.polyhaven import IngestionError, fetch_model_listing, select_models
+from .ingestion.ambientcg import AmbientCGError, fetch_listing as fetch_ambient_listing, select_assets as select_ambient_assets
+from .ingestion.polyhaven import IngestionError, fetch_listing as fetch_poly_listing, select_assets as select_poly_assets
+from .link_health import check_links
 from .models import Resource, resource_dict
 from .seed import seed_demo
 
@@ -210,20 +212,46 @@ def ingest_file(
 
 @ingest_app.command("polyhaven")
 def ingest_polyhaven(
-    limit: int = typer.Option(35, "--limit", help="Maximum model pages (1–200)"),
+    limit: int = typer.Option(35, "--limit", help="Maximum asset pages (1–200)"),
+    asset_type: str = typer.Option("models", "--type", help="models, textures or hdris"),
     query: str = typer.Option("", "--query", help="Optional topic filter"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without saving"),
 ) -> None:
-    """Fetch one official Poly Haven model listing with required source credit."""
+    """Fetch one official Poly Haven models/textures/HDRIs listing with source credit."""
     try:
-        rows = [candidate.as_import_record() for candidate in select_models(fetch_model_listing(), limit=limit, query=query)]
+        rows = [candidate.as_import_record() for candidate in select_poly_assets(
+            fetch_poly_listing(asset_type=asset_type), asset_type=asset_type, limit=limit, query=query,
+        )]
         with open_session(make_engine()) as session:
             report = import_records(session, rows, dry_run=dry_run)
-        report.update({"source": "Poly Haven", "candidates": len(rows), "dry_run": dry_run})
+        report.update({"source": "Poly Haven", "type": asset_type, "candidates": len(rows), "dry_run": dry_run})
         _output(report, as_json=True)
         if report["errors"]:
             raise typer.Exit(code=1)
     except (ValueError, OperationalError, IngestionError) as exc:
+        _fail(exc)
+
+
+@ingest_app.command("ambientcg")
+def ingest_ambientcg(
+    limit: int = typer.Option(30, "--limit", help="Maximum selected links (1–80)"),
+    asset_type: str = typer.Option("material", "--type", help="material, hdri or 3d-model"),
+    query: str = typer.Option("", "--query", help="Optional provider search, 100 characters max"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Validate without saving"),
+) -> None:
+    """Fetch one bounded official ambientCG API page; only record asset URLs."""
+    try:
+        payload = fetch_ambient_listing(asset_type=asset_type, limit=80, query=query)
+        rows = [candidate.as_import_record() for candidate in select_ambient_assets(
+            payload, asset_type=asset_type, limit=limit,
+        )]
+        with open_session(make_engine()) as session:
+            report = import_records(session, rows, dry_run=dry_run)
+        report.update({"source": "ambientCG", "type": asset_type, "candidates": len(rows), "dry_run": dry_run})
+        _output(report, as_json=True)
+        if report["errors"]:
+            raise typer.Exit(code=1)
+    except (ValueError, OperationalError, AmbientCGError) as exc:
         _fail(exc)
 
 
@@ -344,6 +372,24 @@ def evaluate(
         if report["passed"] != report["cases"]:
             raise typer.Exit(code=1)
     except (ValueError, OperationalError, OSError, json.JSONDecodeError) as exc:
+        _fail(exc)
+
+
+@app.command("check-links")
+def check_links_cmd(
+    limit: int = typer.Option(10, "--limit", help="1–20 approved links per batch"),
+    source_name: str | None = typer.Option(None, "--source", help="Only this saved publisher name"),
+    execute: bool = typer.Option(False, "--execute", help="Opt in to live HEAD requests and save observations"),
+    force: bool = typer.Option(False, "--force", help="Recheck inside the 24-hour cooldown (requires --execute)"),
+) -> None:
+    """Preview link health; explicitly execute gentle, redirect-free HEAD checks."""
+    if force and not execute:
+        _fail(ValueError("--force requires --execute"))
+    try:
+        with open_session(make_engine()) as session:
+            report = check_links(session, limit=limit, source_name=source_name, execute=execute, force=force)
+        _output(report, as_json=True)
+    except (ValueError, OperationalError) as exc:
         _fail(exc)
 
 

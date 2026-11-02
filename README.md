@@ -2,7 +2,7 @@
 
 An early, open-source catalog of useful **2D and 3D game-asset links** for AI-agent discovery. This is an index of destinations, collections and assets—not an asset file mirror or a general-purpose web crawler.
 
-> **Status:** Session 4 local prototype. The catalog contains reproducible seeds for **45 real link records** (35 Poly Haven 3D models and 10 Kenney 2D packs), explainable filtered search, and a PostgreSQL full-text migration. A **read-only REST API and MCP tools** now let local AI agents query it. Public hosting, authentication and production PostgreSQL validation are not complete.
+> **Status:** Session 5 local prototype. Reproducible seeds hold **110 real source-page links**: 27 Kenney 2D/3D packs, 53 Poly Haven models/textures and 30 ambientCG PBR materials. It includes explainable filtered search, a PostgreSQL full-text migration, read-only **REST + MCP** agent tools, cautious URL-health observations and a 32-query expanded benchmark. Public hosting, authentication, production PostgreSQL execution and live URL verification are **not complete**.
 
 ## Setup
 
@@ -13,11 +13,14 @@ uv sync --extra dev
 uv run assetindex init
 uv run assetindex ingest file data/seed_kenney.json
 uv run assetindex ingest file data/seed_polyhaven.json
+uv run assetindex ingest file data/seed_kenney_expansion.json
+uv run assetindex ingest file data/seed_ambientcg_materials.json
+uv run assetindex ingest file data/seed_polyhaven_textures.json
 uv run assetindex search "pixel platformer" --dimension 2d
 uv run assetindex search "chair" --dimension 3d
-uv run assetindex search "3d vintage binoculars" --license CC0-1.0 --license-status claimed
+uv run assetindex search "3d PBR wood floor texture" --license CC0-1.0 --license-status claimed
 uv run assetindex search "3d flying dragon animation" --with-sources --json
-uv run assetindex evaluate
+uv run assetindex evaluate data/evaluation_queries_expanded.json
 uv run pytest
 ```
 
@@ -62,16 +65,32 @@ For a host supporting `mcpServers`, the equivalent configuration is:
 
 Use real **absolute paths** in a host configuration; a relative SQLite database URL depends on the working directory. Both protocols only read the database. No API key, rate limiting, TLS or public-host authorization exists yet: **keep this build on localhost; do not expose it directly to the internet**. See [Session 4 setup and verification](docs/SESSION4.md).
 
-Alternatively, use `python -m pip install -e '.[dev]'` and run `assetindex` directly. Local seed imports do **not** fetch webpages, so the 45-link example catalog is reproducible offline.
+Alternatively, use `python -m pip install -e '.[dev]'` and run `assetindex` directly. Local seed imports do **not** fetch webpages, so the 110-link catalog is reproducible offline. The original `data/evaluation_queries.json` is the earlier **45-link** benchmark; use the expanded evaluation file for the full Session 5 catalog.
 
 To query the **live permitted Poly Haven API** instead of using the saved link snapshot:
 
 ```bash
 uv run assetindex ingest polyhaven --limit 35 --dry-run
 uv run assetindex ingest polyhaven --limit 35
+uv run assetindex ingest polyhaven --type textures --limit 18 --dry-run
+uv run assetindex ingest polyhaven --type hdris --limit 10 --dry-run
+uv run assetindex ingest ambientcg --type material --limit 30 --dry-run
+uv run assetindex ingest ambientcg --type hdri --limit 10 --dry-run
+uv run assetindex ingest ambientcg --type 3d-model --limit 10 --dry-run
 ```
 
-The adapter makes a single bounded request to `api.polyhaven.com` with an identifying User-Agent. In results, keep the source label **Poly Haven** visible as required by its API terms. No asset files or preview images are copied. See [source policies](docs/SOURCE_POLICY.md).
+These adapters fetch bounded official metadata listings from Poly Haven or ambientCG with identifying User-Agent strings. Their snapshot sizes vary over time. In results, keep the source label **Poly Haven** visible as required by its API terms. No asset files or preview images are copied. Imported site-wide CC0 is recorded as **provider-claimed**. See [source policies](docs/SOURCE_POLICY.md).
+
+### Cautious link-health checks (Session 5)
+
+```bash
+uv run assetindex check-links --limit 10
+uv run assetindex check-links --source "Kenney" --limit 5
+# Only when you deliberately want live network requests:
+uv run assetindex check-links --source "Kenney" --limit 5 --execute
+```
+
+Without `--execute`, the command is a **read-only preview** and makes no network calls. Executing permits only sequential `HEAD` requests to explicitly allowlisted HTTPS hosts (`kenney.nl`, `polyhaven.com`, `ambientcg.com`), never follows redirects, uses small batches (maximum 20), pauses between calls, and skips links checked in the last 24 hours unless `--force --execute` is given. A response like 404 is marked `suspect_missing` rather than automatically removing a link or changing its review status. Some providers block `HEAD`; such results are **uncertain**, and this tool never performs a `GET` fallback. Live checking is not a licensing audit or proof that downloadable files work.
 
 By default, data is persisted in `./catalog.sqlite3` (ignored by git). The data model uses SQLAlchemy, initializes through a versioned Alembic migration, and accepts a PostgreSQL connection string through `ASSET_COMPASS_DB_URL`; a PostgreSQL deployment and restore test will be verified separately. Do not assume the local SQLite tests certify a PostgreSQL server.
 
@@ -158,10 +177,12 @@ Use `--overwrite` only when you intend to replace an existing export. Reimportin
 | `assetindex-api` | Start local read-only REST + Streamable HTTP MCP server |
 | `assetindex-mcp` | Start read-only MCP tools over stdio for a local agent host |
 | `assetindex seed-demo` | Add 10 synthetic demonstration records |
-| `assetindex ingest polyhaven --limit 35` | Discover and save real 3D model links from the official API |
+| `assetindex ingest polyhaven --type models\|textures\|hdris` | Save typed asset-page links via the official API |
+| `assetindex ingest ambientcg --type material\|hdri\|3d-model` | Save typed material/HDRI/model links via the official API |
 | `assetindex ingest file FILE [--dry-run]` | Validate and import curated JSON/CSV links |
 | `assetindex resource list --status pending` | Inspect the curation queue |
 | `assetindex export-file FILE [--source NAME]` | Export minimal, importable link metadata |
+| `assetindex check-links [--limit 10] [--execute]` | Preview or opt into bounded HEAD-only health observations |
 
 `assetindex --help` and individual command `--help` pages list all options.
 
@@ -181,14 +202,18 @@ The [Session 3 report](docs/SESSION3.md) documents indexed PostgreSQL FTS SQL, w
 
 The [Session 4 report](docs/SESSION4.md) describes the REST/MCP contracts, HTTP JSON-RPC integration tests, localhost security boundaries and remaining steps before a publicly reachable service. The MCP stdio entry point is configured and test-inspected; a full subprocess stdio round trip requires an environment with working asynchronous subprocess/pipe handling.
 
+## Session 5 verification
+
+The [Session 5 report](docs/SESSION5.md) records the 110-link snapshot composition, the official API usage and provider policy evidence, the conservative `HEAD`-only checker, the 32/32 in-sample expanded query benchmark, and the remaining production concerns. **These checks are local; individual links have not been exhaustively tested live.**
+
 ## Roadmap
 
 1. **Complete:** Foundation with local catalog, tags, sources/resources, curator CLI and tests.
 2. **Complete:** Poly Haven official API ingestion, Kenney curated seed, provenance fields and 45 real links.
 3. **Complete locally:** PostgreSQL full-text index migration, relevance ranking, source fallback, strict filters and evaluation.
 4. **Complete locally:** Read-only REST API, MCP Streamable HTTP and stdio tools, source/rights attribution, validation and integration tests.
-5. **Next:** Catalog expansion and link health checks (basic exports already available).
-6. Security, benchmark tests, backups and recovery.
+5. **Complete locally:** Catalog expansion to 110 links, ambientCG and Poly Haven texture ingestion, Kenney UI/sprites/animations, safe previewable URL-health checker and expanded search evaluation.
+6. **Next:** Security hardening, independent search benchmark, backups and recovery.
 7. Live deployment, monitoring and documentation.
 
 Code is MIT licensed. Third-party links, metadata and asset files remain subject to their owners' terms; the code license does not grant rights to them.

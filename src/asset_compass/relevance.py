@@ -17,6 +17,14 @@ STOPWORDS = frozenset({
     "some", "that", "the", "this", "to", "use", "using", "want", "with", "you", "2d", "3d",
 })
 
+# Category words alone must not pretend to match an unindexed subject. For
+# example, "flying dragon animation" should not return an unrelated animation.
+GENERIC_ASSET_TERMS = frozenset({
+    "animation", "background", "character", "environment", "hdri", "icon",
+    "lighting", "material", "model", "pbr", "rig", "skybox", "sprite",
+    "texture", "tileset", "ui",
+})
+
 TERM_ALIASES = {
     "lowpoly": "low-poly", "pixelart": "pixel-art", "pixel": "pixel-art", "pixelated": "pixel-art",
     "spritesheets": "sprite-sheet", "spritesheet": "sprite-sheet",
@@ -87,6 +95,11 @@ def score_resource(
     matched_titles = terms & title
     matched_descriptions = terms & description
     matched_kinds = terms & kind
+    distinctive = terms - GENERIC_ASSET_TERMS
+    if distinctive and not distinctive.intersection(
+        matched_tags | matched_titles | matched_descriptions | matched_kinds
+    ):
+        return 0, []
     weight = weights or {}
     score = round(sum(
         multiplier * weight.get(term, 1)

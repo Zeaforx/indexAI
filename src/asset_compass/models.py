@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import ForeignKey, JSON, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -72,6 +72,8 @@ class Resource(Base):
     review_method: Mapped[str] = mapped_column(String(20), default="none", nullable=False)
     review_note: Mapped[str] = mapped_column(Text, default="", nullable=False)
     url_status: Mapped[str] = mapped_column(String(20), default="unknown", nullable=False)
+    last_checked_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    last_http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow, nullable=False)
 
@@ -108,5 +110,7 @@ def resource_dict(resource: Resource) -> dict[str, Any]:
         "review_status": resource.review_status,
         "review_method": resource.review_method,
         "url_status": resource.url_status,
+        "last_checked_at": resource.last_checked_at.isoformat() if resource.last_checked_at else None,
+        "last_http_status": resource.last_http_status,
     }
 
