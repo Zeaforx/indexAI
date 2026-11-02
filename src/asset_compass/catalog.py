@@ -23,9 +23,13 @@ def add_source(
     name: str,
     description: str = "",
     policy_url: str | None = None,
+    ingestion_method: str = "manual",
+    attribution_notice: str = "",
 ) -> tuple[Source, bool]:
     if not name.strip():
         raise CatalogError("Source name cannot be empty")
+    if ingestion_method not in {"manual", "official_api", "import"}:
+        raise CatalogError("Unsupported source ingestion method")
     normalized = canonicalize_url(url)
     existing = session.scalar(select(Source).where(Source.canonical_url == normalized))
     if existing:
@@ -35,6 +39,8 @@ def add_source(
         name=name.strip(),
         description=description.strip(),
         policy_url=canonicalize_url(policy_url) if policy_url else None,
+        ingestion_method=ingestion_method,
+        attribution_notice=attribution_notice.strip(),
     )
     session.add(source)
     session.flush()
@@ -89,6 +95,10 @@ def add_resource(
     license_url: str | None = None,
     license_status: str = "unknown",
     record_type: str = "asset",
+    author_name: str = "",
+    source_asset_id: str | None = None,
+    source_tags: list[str] | None = None,
+    metadata_source: str = "manual",
 ) -> tuple[Resource, bool]:
     if not title.strip():
         raise CatalogError("Resource title cannot be empty")
@@ -98,6 +108,8 @@ def add_resource(
     license_status = require_choice(license_status, LICENSE_STATUSES, "license status")
     if record_type not in {"asset", "collection"}:
         raise CatalogError("Record type must be 'asset' or 'collection'")
+    if metadata_source not in {"manual", "official_api", "batch_import"}:
+        raise CatalogError("Unsupported resource metadata source")
     evidence = canonicalize_url(license_url) if license_url else None
     _license_check(license_status, license_id, evidence)
     canonical = canonicalize_url(url)
@@ -121,6 +133,10 @@ def add_resource(
         license_url=evidence,
         license_status=license_status,
         record_type=record_type,
+        author_name=author_name.strip(),
+        source_asset_id=source_asset_id,
+        source_tags=source_tags or [],
+        metadata_source=metadata_source,
     )
     session.add(resource)
     resource.tags = _get_tags(session, parse_tags(tags))

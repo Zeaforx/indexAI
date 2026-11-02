@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "asset-compass"
-version = "0.1.0a0"
+version = "0.1.0a1"
 description = "A curated, agent-friendly index of useful 2D and 3D asset links"
 readme = "README.md"
 requires-python = ">=3.12"

@@ -1,0 +1,74 @@
+{
+  "records": [
+    {
+      "source_name": "Kenney", "source_url": "https://kenney.nl", "source_policy_url": "https://kenney.nl/support",
+      "url": "https://kenney.nl/assets/pixel-platformer", "title": "Pixel Platformer", "description": "2D pixel platformer pack with tiles and related artwork.",
+      "dimension": "2d", "kind": "collection", "record_type": "collection", "tags": ["2d", "pixel-art", "platformer", "tileset"], "formats": [],
+      "author_name": "Kenney", "access": "free", "license_id": "CC0-1.0", "license_url": "https://kenney.nl/assets/pixel-platformer", "license_status": "claimed",
+      "metadata_source": "batch_import", "review_status": "approved", "review_method": "ai-assisted", "review_note": "Official asset page lists CC0; file formats not individually inspected."
+    },
+    {
+      "source_name": "Kenney", "source_url": "https://kenney.nl", "source_policy_url": "https://kenney.nl/support",
+      "url": "https://kenney.nl/assets/platformer-art-pixel", "title": "Platformer Art Pixel", "description": "A 2D pixel-art platformer asset pack.",
+      "dimension": "2d", "kind": "collection", "record_type": "collection", "tags": ["2d", "pixel-art", "platformer", "tileset"], "formats": [],
+      "author_name": "Kenney", "access": "free", "license_id": "CC0-1.0", "license_url": "https://kenney.nl/assets/platformer-art-pixel", "license_status": "claimed",
+      "metadata_source": "batch_import", "review_status": "approved", "review_method": "ai-assisted", "review_note": "Official asset page lists CC0; file formats not individually inspected."
+    },
+    {
+      "source_name": "Kenney", "source_url": "https://kenney.nl", "source_policy_url": "https://kenney.nl/support",
+      "url": "https://kenney.nl/assets/new-platformer-pack", "title": "New Platformer Pack", "description": "2D platformer art collection suitable for game prototyping.",
+      "dimension": "2d", "kind": "collection", "record_type": "collection", "tags": ["2d", "platformer", "tileset", "game-art"], "formats": [],
+      "author_name": "Kenney", "access": "free", "license_id": "CC0-1.0", "license_url": "https://kenney.nl/assets/new-platformer-pack", "license_status": "claimed",
+      "metadata_source": "batch_import", "review_status": "approved", "review_method": "ai-assisted", "review_note": "Official asset page lists CC0; file formats not individually inspected."
+    },
+    {
+      "source_name": "Kenney", "source_url": "https://kenney.nl", "source_policy_url": "https://kenney.nl/support",
+      "url": "https://kenney.nl/assets/pixel-pack", "title": "Pixel Pack", "description": "General-purpose 2D pixel game asset collection.",
+      "dimension": "2d", "kind": "collection", "record_type": "collection", "tags": ["2d", "pixel-art", "game-art"], "formats": [],
+      "author_name": "Kenney", "access": "free", "license_id": "CC0-1.0", "license_url": "https://kenney.nl/assets/pixel-pack", "license_status": "claimed",
+      "metadata_source": "batch_import", "review_status": "approved", "review_method": "ai-assisted", "review_note": "Official asset page lists CC0; file formats not individually inspected."
+    },
+    {
+      "source_name": "Kenney", "source_url": "https://kenney.nl", "source_policy_url": "https://kenney.nl/support",
+      "url": "https://kenney.nl/assets/simplified-platformer-pack", "title": "Simplified Platformer Pack", "description": "Minimal 2D platformer-style asset collection.",
+      "dimension": "2d", "kind": "collection", "record_type": "collection", "tags": ["2d", "platformer", "minimal", "tileset"], "formats": [],
+      "author_name": "Kenney", "access": "free", "license_id": "CC0-1.0", "license_url": "https://kenney.nl/assets/simplified-platformer-pack", "license_status": "claimed",
+      "metadata_source": "batch_import", "review_status": "approved", "review_method": "ai-assisted", "review_note": "Official asset page lists CC0; file formats not individually inspected."
+    },
+    {
+      "source_name": "Kenney", "source_url": "https://kenney.nl", "source_policy_url": "https://kenney.nl/support",
+      "url": "https://kenney.nl/assets/abstract-platformer", "title": "Abstract Platformer", "description": "2D abstract platformer game art collection.",
+      "dimension": "2d", "kind": "collection", "record_type": "collection", "tags": ["2d", "platformer", "abstract", "tileset"], "formats": [],
+      "author_name": "Kenney", "access": "free", "license_id": "CC0-1.0", "license_url": "https://kenney.nl/assets/abstract-platformer", "license_status": "claimed",
+      "metadata_source": "batch_import", "review_status": "approved", "review_method": "ai-assisted", "review_note": "Official asset page lists CC0; file formats not individually inspected."
+    },
+    {
+      "source_name": "Kenney", "source_url": "https://kenney.nl", "source_policy_url": "https://kenney.nl/support",
+      "url": "https://kenney.nl/assets/pixel-line-platformer", "title": "Pixel Line Platformer", "description": "2D platformer collection featuring line-based pixel visuals.",
+      "dimension": "2d", "kind": "collection", "record_type": "collection", "tags": ["2d", "pixel-art", "platformer", "tileset"], "formats": [],
+      "author_name": "Kenney", "access": "free", "license_id": "CC0-1.0", "license_url": "https://kenney.nl/assets/pixel-line-platformer", "license_status": "claimed",
+      "metadata_source": "batch_import", "review_status": "approved", "review_method": "ai-assisted", "review_note": "Official asset page lists CC0; file formats not individually inspected."
+    },
+    {
+      "source_name": "Kenney", "source_url": "https://kenney.nl", "source_policy_url": "https://kenney.nl/support",
+      "url": "https://kenney.nl/assets/platformer-pack-remastered", "title": "Platformer Pack Remastered", "description": "Updated 2D platformer game asset collection.",
+      "dimension": "2d", "kind": "collection", "record_type": "collection", "tags": ["2d", "platformer", "remastered", "tileset"], "formats": [],
+      "author_name": "Kenney", "access": "free", "license_id": "CC0-1.0", "license_url": "https://kenney.nl/assets/platformer-pack-remastered", "license_status": "claimed",
+      "metadata_source": "batch_import", "review_status": "approved", "review_method": "ai-assisted", "review_note": "Official asset page lists CC0; file formats not individually inspected."
+    },
+    {
+      "source_name": "Kenney", "source_url": "https://kenney.nl", "source_policy_url": "https://kenney.nl/support",
+      "url": "https://kenney.nl/assets/1-bit-platformer-pack", "title": "1-Bit Platformer Pack", "description": "One-bit pixel platformer assets including terrain and characters.",
+      "dimension": "2d", "kind": "collection", "record_type": "collection", "tags": ["2d", "1-bit", "pixel-art", "platformer", "terrain", "character"], "formats": [],
+      "author_name": "Kenney", "access": "free", "license_id": "CC0-1.0", "license_url": "https://kenney.nl/assets/1-bit-platformer-pack", "license_status": "claimed",
+      "metadata_source": "batch_import", "review_status": "approved", "review_method": "ai-assisted", "review_note": "Official asset page lists CC0; file formats not individually inspected."
+    },
+    {
+      "source_name": "Kenney", "source_url": "https://kenney.nl", "source_policy_url": "https://kenney.nl/support",
+      "url": "https://kenney.nl/assets/pixel-platformer-blocks", "title": "Pixel Platformer Blocks", "description": "2D pixel platformer block assets.",
+      "dimension": "2d", "kind": "collection", "record_type": "collection", "tags": ["2d", "pixel-art", "platformer", "blocks", "tileset"], "formats": [],
+      "author_name": "Kenney", "access": "free", "license_id": "CC0-1.0", "license_url": "https://kenney.nl/assets/pixel-platformer-blocks", "license_status": "claimed",
+      "metadata_source": "batch_import", "review_status": "approved", "review_method": "ai-assisted", "review_note": "Official asset page lists CC0; file formats not individually inspected."
+    }
+  ]
+}

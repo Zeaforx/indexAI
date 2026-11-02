@@ -1,8 +1,10 @@
 """Curator commands. No third-party pages are fetched in Session 1."""
 
 import json
+from pathlib import Path
 
 import typer
+from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 
 from .catalog import (
@@ -10,7 +12,9 @@ from .catalog import (
     list_sources, review_resource, search_resources,
 )
 from .db import initialize, make_engine, open_session
-from .models import resource_dict
+from .ingestion.batch import export_records, import_records, load_records
+from .ingestion.polyhaven import IngestionError, fetch_model_listing, select_models
+from .models import Resource, resource_dict
 from .seed import seed_demo
 
 app = typer.Typer(no_args_is_help=True, help="Curate and search 2D/3D asset links")
@@ -18,6 +22,8 @@ source_app = typer.Typer(no_args_is_help=True, help="Manage source destinations"
 resource_app = typer.Typer(no_args_is_help=True, help="Manage asset and collection URLs")
 app.add_typer(source_app, name="source")
 app.add_typer(resource_app, name="resource")
+ingest_app = typer.Typer(no_args_is_help=True, help="Import catalog entries from reviewed sources")
+app.add_typer(ingest_app, name="ingest")
 
 
 def _fail(exc: Exception) -> None:
@@ -162,6 +168,83 @@ def resource_show(resource_id: int) -> None:
             data = resource_dict(get_resource(session, resource_id))
         _output(data, as_json=True)
     except (ValueError, OperationalError) as exc:
+        _fail(exc)
+
+
+@resource_app.command("list")
+def resource_list(
+    status: str = typer.Option("pending", "--status", help="pending, approved, rejected, or all"),
+    limit: int = typer.Option(30, "--limit"),
+) -> None:
+    if status not in {"pending", "approved", "rejected", "all"} or not 1 <= limit <= 200:
+        _fail(ValueError("Status must be pending/approved/rejected/all and limit 1–200"))
+    try:
+        with open_session(make_engine()) as session:
+            statement = select(Resource).order_by(Resource.id).limit(limit)
+            if status != "all":
+                statement = statement.where(Resource.review_status == status)
+            items = [{"id": x.id, "title": x.title, "status": x.review_status, "url": x.canonical_url} for x in session.scalars(statement)]
+        _output(items, as_json=True)
+    except (ValueError, OperationalError) as exc:
+        _fail(exc)
+
+
+@ingest_app.command("file")
+def ingest_file(
+    path: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Validate without saving records"),
+) -> None:
+    """Import reviewed link metadata from CSV/JSON. Never fetches submitted URLs."""
+    try:
+        rows = load_records(path)
+        with open_session(make_engine()) as session:
+            report = import_records(session, rows, dry_run=dry_run)
+        report["dry_run"] = dry_run
+        _output(report, as_json=True)
+        if report["errors"]:
+            raise typer.Exit(code=1)
+    except (ValueError, OperationalError) as exc:
+        _fail(exc)
+
+
+@ingest_app.command("polyhaven")
+def ingest_polyhaven(
+    limit: int = typer.Option(35, "--limit", help="Maximum model pages (1–200)"),
+    query: str = typer.Option("", "--query", help="Optional topic filter"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Preview without saving"),
+) -> None:
+    """Fetch one official Poly Haven model listing with required source credit."""
+    try:
+        rows = [candidate.as_import_record() for candidate in select_models(fetch_model_listing(), limit=limit, query=query)]
+        with open_session(make_engine()) as session:
+            report = import_records(session, rows, dry_run=dry_run)
+        report.update({"source": "Poly Haven", "candidates": len(rows), "dry_run": dry_run})
+        _output(report, as_json=True)
+        if report["errors"]:
+            raise typer.Exit(code=1)
+    except (ValueError, OperationalError, IngestionError) as exc:
+        _fail(exc)
+
+
+@app.command("export-file")
+def export_file(
+    path: Path = typer.Argument(..., help="Destination .json file"),
+    source_name: str | None = typer.Option(None, "--source", help="Only export one named source"),
+    overwrite: bool = typer.Option(False, "--overwrite", help="Explicitly replace an existing export"),
+) -> None:
+    """Export link metadata for backup, curation and reproducible imports."""
+    if path.suffix.lower() != ".json":
+        _fail(ValueError("Export path must end with .json"))
+    if path.exists() and not overwrite:
+        _fail(ValueError(f"File exists: {path}. Use --overwrite to replace it"))
+    if not path.parent.exists():
+        _fail(ValueError(f"Parent directory does not exist: {path.parent}"))
+    try:
+        with open_session(make_engine()) as session:
+            payload = export_records(session, source_name=source_name)
+        path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        _output(f"Exported {len(payload['records'])} link records to {path}")
+    except (ValueError, OperationalError, OSError) as exc:
         _fail(exc)
 
 

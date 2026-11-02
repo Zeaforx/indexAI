@@ -24,6 +24,9 @@ class Source(Base):
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     policy_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     search_url_template: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ingestion_method: Mapped[str] = mapped_column(String(30), default="manual", nullable=False)
+    attribution_notice: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    policy_checked_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(default=utcnow, nullable=False)
     resources: Mapped[list["Resource"]] = relationship(back_populates="source")
 
@@ -60,6 +63,11 @@ class Resource(Base):
     license_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     license_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     license_status: Mapped[str] = mapped_column(String(20), default="unknown", nullable=False)
+    author_name: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    source_asset_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    source_tags: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    metadata_source: Mapped[str] = mapped_column(String(40), default="manual", nullable=False)
+    last_synced_at: Mapped[datetime | None] = mapped_column(nullable=True)
     review_status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
     review_method: Mapped[str] = mapped_column(String(20), default="none", nullable=False)
     review_note: Mapped[str] = mapped_column(Text, default="", nullable=False)
@@ -90,6 +98,10 @@ def resource_dict(resource: Resource) -> dict[str, Any]:
             "url": resource.license_url,
             "status": resource.license_status,
         },
+        "author": resource.author_name,
+        "source_asset_id": resource.source_asset_id,
+        "metadata_source": resource.metadata_source,
+        "source_tags": resource.source_tags,
         "review_status": resource.review_status,
         "review_method": resource.review_method,
         "url_status": resource.url_status,
