@@ -225,7 +225,7 @@ The [Session 5 report](docs/SESSION5.md) records the 110-link snapshot compositi
 
 ## Session 6 verification
 
-The [Session 6 report](docs/SESSION6.md) describes tested SQLite backup/recovery, API and MCP request throttling, input bounds, a second **23/24** task-worded search evaluation, and two GitHub Actions jobs (SQLite/tests/package plus a live PostgreSQL service migration/full-text integration test). PostgreSQL **was unavailable on the local machine**, so confirm its execution through the published GitHub Actions run before claiming live PostgreSQL verification. One evaluation miss is documented; this second set is not a blind real-user benchmark.
+The [Session 6 report](docs/SESSION6.md) describes tested SQLite backup/recovery, API and MCP request throttling, input bounds, a second **23/24** task-worded search evaluation, and two GitHub Actions jobs (SQLite/tests/package plus a live PostgreSQL service migration/full-text integration test). The workflow also supports manual **Run workflow** if publishing through the GitHub integration does not trigger it. PostgreSQL **was unavailable on the local machine**, so confirm its execution through a GitHub Actions run before claiming live PostgreSQL verification. One evaluation miss is documented; this second set is not a blind real-user benchmark.
 
 ## Roadmap
 

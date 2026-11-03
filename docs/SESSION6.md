@@ -73,12 +73,12 @@ The holdout CLI deliberately exits nonzero while a failing case remains; this do
 
 ### CI workflow
 
-File: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). GitHub Actions runs automatically on pushes to `main` and pull requests:
+File: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). GitHub Actions is configured for pushes to `main`, pull requests, and manual **Run workflow** invocation from the Actions tab:
 
 1. **SQLite, API, MCP, recovery, build** — install pinned dependencies from `uv.lock`, run the full local test suite and build both distribution artifacts.
 2. **Live PostgreSQL 16** — start an ephemeral PostgreSQL service, initialize all Alembic migrations and test GIN full-text/title search plus relational tag matches.
 
-Until the first CI run completes, report this as **configured**, not as a previously passing live PostgreSQL environment. Actions depend on available runners, official action versions and network availability.
+Until the first CI run completes, report this as **configured**, not as a previously passing live PostgreSQL environment. GitHub API publication of a workflow may not itself trigger Actions; if no run appears, use **Run workflow** from the repository's Actions tab (and enable Actions if the repository currently has them disabled). Actions depend on available runners, official action versions and network availability.
 
 ## Still outstanding
 
