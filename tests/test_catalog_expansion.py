@@ -166,3 +166,17 @@ def test_expanded_benchmark_is_reproducible_in_fresh_database(engine):
         report = run_evaluation(session, cases)
         assert report["cases"] == 32
         assert report["passed"] == 32, [d for d in report["details"] if not d["passed"]]
+
+
+def test_additional_task_worded_queries_record_a_realistic_baseline(engine):
+    """Separate prompts expose one known style ambiguity; avoid claiming perfection."""
+    from asset_compass.evaluation import run_evaluation
+
+    with open_session(engine) as session:
+        for file in SEEDS:
+            assert import_records(session, load_records(DATA / file))["errors"] == []
+        cases = json.loads((DATA / "evaluation_queries_holdout.json").read_text())["cases"]
+        report = run_evaluation(session, cases)
+        assert report["cases"] == 24
+        assert report["passed"] >= 23, [d for d in report["details"] if not d["passed"]]
+        assert report["source_fallback_rate"] == 1.0

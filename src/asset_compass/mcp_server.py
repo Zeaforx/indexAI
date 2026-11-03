@@ -43,13 +43,13 @@ def _call(operation, /, *args, **kwargs):
 async def search_assets(
     query: Annotated[str, Field(min_length=1, max_length=500, description="Description of the wanted 2D/3D game assets")],
     dimension: Literal["2d", "3d", "both"] | None = None,
-    kind: str | None = None,
-    tag: str | None = None,
-    style: str | None = None,
-    subject: str | None = None,
-    format: str | None = None,
+    kind: Annotated[str | None, Field(max_length=100)] = None,
+    tag: Annotated[str | None, Field(max_length=100)] = None,
+    style: Annotated[str | None, Field(max_length=100)] = None,
+    subject: Annotated[str | None, Field(max_length=100)] = None,
+    format: Annotated[str | None, Field(max_length=100)] = None,
     access: Literal["free", "paid", "mixed", "unknown"] | None = None,
-    license_id: str | None = None,
+    license_id: Annotated[str | None, Field(max_length=100)] = None,
     license_status: Literal["unknown", "claimed", "verified"] | None = None,
     limit: Annotated[int, Field(ge=1, le=50)] = 10,
 ) -> dict[str, Any]:
@@ -65,7 +65,7 @@ async def search_assets(
 async def find_sources(
     query: Annotated[str, Field(min_length=1, max_length=500)],
     dimension: Literal["2d", "3d", "both"] | None = None,
-    kind: str | None = None,
+    kind: Annotated[str | None, Field(max_length=100)] = None,
     limit: Annotated[int, Field(ge=1, le=20)] = 5,
 ) -> dict[str, Any]:
     """Find curated asset directories without inventing an individual asset link."""

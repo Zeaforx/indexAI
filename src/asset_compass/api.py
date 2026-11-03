@@ -1,7 +1,7 @@
 """Local REST API + MCP Streamable HTTP, both strictly read-only.
 
-Starts on loopback by default; deployment, auth, rate limiting and TLS belong
-to a later session. The catalog must first be initialized with `assetindex init`.
+Starts only on loopback. An in-process request throttle is enabled; public
+deployment still requires authentication, a trusted proxy and TLS.
 """
 
 import os
@@ -16,6 +16,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from . import __version__
 from .mcp_server import mcp
 from . import service
+from .rate_limit import RateLimitGuard
 
 
 @asynccontextmanager
@@ -31,6 +32,7 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+app.add_middleware(RateLimitGuard)
 
 
 def _call(operation, /, *args, not_found: bool = False, **kwargs):
@@ -52,13 +54,13 @@ async def healthz():
 async def search_assets(
     q: Annotated[str, Query(min_length=1, max_length=500, description="Natural-language asset search")],
     dimension: Literal["2d", "3d", "both"] | None = None,
-    kind: str | None = None,
-    tag: str | None = None,
-    style: str | None = None,
-    subject: str | None = None,
-    format: str | None = None,
+    kind: Annotated[str | None, Query(max_length=100)] = None,
+    tag: Annotated[str | None, Query(max_length=100)] = None,
+    style: Annotated[str | None, Query(max_length=100)] = None,
+    subject: Annotated[str | None, Query(max_length=100)] = None,
+    format: Annotated[str | None, Query(max_length=100)] = None,
     access: Literal["free", "paid", "mixed", "unknown"] | None = None,
-    license_id: str | None = None,
+    license_id: Annotated[str | None, Query(max_length=100)] = None,
     license_status: Literal["unknown", "claimed", "verified"] | None = None,
     limit: Annotated[int, Query(ge=1, le=50)] = 10,
 ):
@@ -74,7 +76,7 @@ async def search_assets(
 async def find_sources(
     q: Annotated[str, Query(min_length=1, max_length=500)],
     dimension: Literal["2d", "3d", "both"] | None = None,
-    kind: str | None = None,
+    kind: Annotated[str | None, Query(max_length=100)] = None,
     limit: Annotated[int, Query(ge=1, le=20)] = 5,
 ):
     """Recommend curated source directories; no availability or rights guarantee."""

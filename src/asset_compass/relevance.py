@@ -36,6 +36,8 @@ TERM_ALIASES = {
     "models": "model", "textures": "texture", "materials": "material",
     "props": "prop", "rocks": "rock", "stones": "stone", "buildings": "building",
     "weapons": "weapon", "vehicles": "vehicle", "chairs": "chair",
+    "buttons": "button", "panels": "panel", "menus": "menu",
+    "block": "blocky", "blocks": "blocky", "small": "mini",
 }
 
 

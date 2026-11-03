@@ -2,7 +2,7 @@
 
 An early, open-source catalog of useful **2D and 3D game-asset links** for AI-agent discovery. This is an index of destinations, collections and assets—not an asset file mirror or a general-purpose web crawler.
 
-> **Status:** Session 5 local prototype. Reproducible seeds hold **110 real source-page links**: 27 Kenney 2D/3D packs, 53 Poly Haven models/textures and 30 ambientCG PBR materials. It includes explainable filtered search, a PostgreSQL full-text migration, read-only **REST + MCP** agent tools, cautious URL-health observations and a 32-query expanded benchmark. Public hosting, authentication, production PostgreSQL execution and live URL verification are **not complete**.
+> **Status:** Session 6 local prototype. Reproducible seeds hold **110 real source-page links**: 27 Kenney 2D/3D packs, 53 Poly Haven models/textures and 30 ambientCG PBR materials. It includes explainable filtered search, read-only **REST + MCP** agent tools, cautious URL-health observations, verified SQLite backup/restore commands, local HTTP request throttling, and GitHub CI with a dedicated PostgreSQL service. **Public hosting, authentication, independent rights verification and live URL verification remain incomplete.**
 
 ## Setup
 
@@ -21,6 +21,7 @@ uv run assetindex search "chair" --dimension 3d
 uv run assetindex search "3d PBR wood floor texture" --license CC0-1.0 --license-status claimed
 uv run assetindex search "3d flying dragon animation" --with-sources --json
 uv run assetindex evaluate data/evaluation_queries_expanded.json
+uv run assetindex evaluate data/evaluation_queries_holdout.json
 uv run pytest
 ```
 
@@ -63,7 +64,7 @@ For a host supporting `mcpServers`, the equivalent configuration is:
 }
 ```
 
-Use real **absolute paths** in a host configuration; a relative SQLite database URL depends on the working directory. Both protocols only read the database. No API key, rate limiting, TLS or public-host authorization exists yet: **keep this build on localhost; do not expose it directly to the internet**. See [Session 4 setup and verification](docs/SESSION4.md).
+Use real **absolute paths** in a host configuration; a relative SQLite database URL depends on the working directory. Both protocols only read the database. Session 6 adds a simple **120 requests per 60 seconds per peer IP** sliding-window guard for REST and HTTP MCP; configure it with `ASSET_COMPASS_RATE_LIMIT` (1–1000). The guard ignores spoofable `X-Forwarded-For` headers and bounds its in-process state. It is **not** a distributed limit, user authentication, reverse-proxy configuration, request-body limiter, or TLS termination. **Keep this build on localhost; do not expose it directly to the internet.** See [Session 4 setup](docs/SESSION4.md) and [Session 6 security/recovery notes](docs/SESSION6.md).
 
 Alternatively, use `python -m pip install -e '.[dev]'` and run `assetindex` directly. Local seed imports do **not** fetch webpages, so the 110-link catalog is reproducible offline. The original `data/evaluation_queries.json` is the earlier **45-link** benchmark; use the expanded evaluation file for the full Session 5 catalog.
 
@@ -92,9 +93,22 @@ uv run assetindex check-links --source "Kenney" --limit 5 --execute
 
 Without `--execute`, the command is a **read-only preview** and makes no network calls. Executing permits only sequential `HEAD` requests to explicitly allowlisted HTTPS hosts (`kenney.nl`, `polyhaven.com`, `ambientcg.com`), never follows redirects, uses small batches (maximum 20), pauses between calls, and skips links checked in the last 24 hours unless `--force --execute` is given. A response like 404 is marked `suspect_missing` rather than automatically removing a link or changing its review status. Some providers block `HEAD`; such results are **uncertain**, and this tool never performs a `GET` fallback. Live checking is not a licensing audit or proof that downloadable files work.
 
+### Verified SQLite backup and recovery (Session 6)
+
+```bash
+# Use a new output path. First create the backups/ directory if needed.
+uv run assetindex backup backups/catalog-2026-11-03.sqlite3
+uv run assetindex verify-backup backups/catalog-2026-11-03.sqlite3
+# Restore to a new path only; the active catalog stays unchanged.
+uv run assetindex restore backups/catalog-2026-11-03.sqlite3 --to recovered.sqlite3
+ASSET_COMPASS_DB_URL=sqlite:///./recovered.sqlite3 uv run assetindex search "pixel platformer"
+```
+
+Backups use SQLite's online backup API for a consistent snapshot, then check database integrity, foreign keys, catalog tables, schema version, counts and SHA-256. Snapshot files are atomically published only when the target path is free; **no command overwrites an existing database**. Keep copies off-device and test restoration regularly. These commands intentionally support **file-backed SQLite only**. For PostgreSQL, use `pg_dump`/`pg_restore` with managed credentials and test that restore on a disposable server.
+
 By default, data is persisted in `./catalog.sqlite3` (ignored by git). The data model uses SQLAlchemy, initializes through a versioned Alembic migration, and accepts a PostgreSQL connection string through `ASSET_COMPASS_DB_URL`; a PostgreSQL deployment and restore test will be verified separately. Do not assume the local SQLite tests certify a PostgreSQL server.
 
-On PostgreSQL, migration `0003` installs an English-language GIN full-text index over titles and descriptions. Queries use `websearch_to_tsquery` to select candidates, including tag-only matches via the relational tag index. The final, explainable ranking is shared with SQLite. **PostgreSQL query compilation and migration SQL have been tested, but not execution against a running PostgreSQL server yet.**
+On PostgreSQL, migration `0003` installs an English-language GIN full-text index over titles and descriptions. Queries use `websearch_to_tsquery` to select candidates, including tag-only matches via the relational tag index. The final, explainable ranking is shared with SQLite. Session 6 adds a dedicated PostgreSQL 16 GitHub Actions integration job; **local testing still cannot certify execution against PostgreSQL**. Check the GitHub Actions result for live verification.
 
 For PostgreSQL, configure something like:
 
@@ -183,6 +197,9 @@ Use `--overwrite` only when you intend to replace an existing export. Reimportin
 | `assetindex resource list --status pending` | Inspect the curation queue |
 | `assetindex export-file FILE [--source NAME]` | Export minimal, importable link metadata |
 | `assetindex check-links [--limit 10] [--execute]` | Preview or opt into bounded HEAD-only health observations |
+| `assetindex backup FILE.sqlite3` | Create a consistent, verified SQLite snapshot to a new file |
+| `assetindex verify-backup FILE.sqlite3` | Verify SQLite structure, counts and SHA-256 |
+| `assetindex restore FILE.sqlite3 --to NEW.sqlite3` | Restore a snapshot without replacing existing files |
 
 `assetindex --help` and individual command `--help` pages list all options.
 
@@ -206,6 +223,10 @@ The [Session 4 report](docs/SESSION4.md) describes the REST/MCP contracts, HTTP 
 
 The [Session 5 report](docs/SESSION5.md) records the 110-link snapshot composition, the official API usage and provider policy evidence, the conservative `HEAD`-only checker, the 32/32 in-sample expanded query benchmark, and the remaining production concerns. **These checks are local; individual links have not been exhaustively tested live.**
 
+## Session 6 verification
+
+The [Session 6 report](docs/SESSION6.md) describes tested SQLite backup/recovery, API and MCP request throttling, input bounds, a second **23/24** task-worded search evaluation, and two GitHub Actions jobs (SQLite/tests/package plus a live PostgreSQL service migration/full-text integration test). PostgreSQL **was unavailable on the local machine**, so confirm its execution through the published GitHub Actions run before claiming live PostgreSQL verification. One evaluation miss is documented; this second set is not a blind real-user benchmark.
+
 ## Roadmap
 
 1. **Complete:** Foundation with local catalog, tags, sources/resources, curator CLI and tests.
@@ -213,8 +234,8 @@ The [Session 5 report](docs/SESSION5.md) records the 110-link snapshot compositi
 3. **Complete locally:** PostgreSQL full-text index migration, relevance ranking, source fallback, strict filters and evaluation.
 4. **Complete locally:** Read-only REST API, MCP Streamable HTTP and stdio tools, source/rights attribution, validation and integration tests.
 5. **Complete locally:** Catalog expansion to 110 links, ambientCG and Poly Haven texture ingestion, Kenney UI/sprites/animations, safe previewable URL-health checker and expanded search evaluation.
-6. **Next:** Security hardening, independent search benchmark, backups and recovery.
-7. Live deployment, monitoring and documentation.
+6. **Complete locally; CI to verify:** Recovery-safe SQLite backups, HTTP request throttling, task-worded search evaluation and CI jobs for SQLite/build and live PostgreSQL.
+7. **Next:** Review CI, add authentication and public deployment protections, provision hosting and monitor a deployed service when infrastructure is chosen.
 
 Code is MIT licensed. Third-party links, metadata and asset files remain subject to their owners' terms; the code license does not grant rights to them.
 

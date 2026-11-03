@@ -33,6 +33,8 @@ def normalize_tag(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", cleaned).strip("-")
     if not slug:
         raise ValueError(f"Tag contains no letters or digits: {value!r}")
+    if len(slug) > 100:
+        raise ValueError("Normalized tags must not exceed 100 characters")
     return slug
 
 

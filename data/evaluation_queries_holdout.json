@@ -1,0 +1,29 @@
+{
+  "description": "Session 6 additional prompt set written separately from the Session 5 evaluation; no semantic-search claims.",
+  "cases": [
+    {"query":"I need overworld map artwork for a 2d adventure", "dimension":"2d", "expected_type":"asset", "expected":"Map Pack"},
+    {"query":"buttons and panels for my 2d menu", "dimension":"2d", "expected_type":"asset", "expected":"UI Pack"},
+    {"query":"pixelated interface elements for a 2d game", "dimension":"2d", "expected_type":"asset", "expected":"Pixel UI Pack"},
+    {"query":"game controller keyboard symbols for tutorial popups", "dimension":"2d", "expected_type":"asset", "expected":"Input Prompts"},
+    {"query":"draw leafy foliage effects as 2d sprites", "dimension":"2d", "expected_type":"asset", "expected":"Foliage Sprites"},
+    {"query":"isometric town buildings for top down map", "dimension":"2d", "expected_type":"asset", "expected":"Isometric Tiles Buildings"},
+    {"query":"retro background art for a 2d side scroller", "dimension":"2d", "expected_type":"asset", "expected":"Background Elements"},
+    {"query":"make an army of little monster sprite characters", "dimension":"2d", "expected_type":"asset", "expected":"Monster Builder Pack"},
+    {"query":"rigged zombie survivors as 3d non player characters", "dimension":"3d", "expected_type":"asset", "expected":"Animated Characters Survivors"},
+    {"query":"nostalgic retro 3d animated figures", "dimension":"3d", "expected_type":"asset", "expected":"Animated Characters Retro"},
+    {"query":"block shaped animated 3d people", "dimension":"3d", "expected_type":"asset", "expected":"Blocky Characters"},
+    {"query":"small 3d characters for an inclusive game", "dimension":"3d", "expected_type":"asset", "expected":"Mini Characters"},
+    {"query":"make wet clay ground surfaces in my 3d level", "dimension":"3d", "expected_type":"asset", "expected":"Clay 005"},
+    {"query":"plaster for an aged 3d interior wall", "dimension":"3d", "expected_type":"asset", "expected":"Plaster 001"},
+    {"query":"add soft carpet floor texture to room", "dimension":"3d", "expected_type":"asset", "expected":"Carpet 016"},
+    {"query":"rough driveway gravel material texture", "dimension":"3d", "expected_type":"asset", "expected":"Gravel 043"},
+    {"query":"need brushed corrugated steel siding", "dimension":"3d", "expected_type":"asset", "expected":"Corrugated Steel 009"},
+    {"query":"walnut veneer tabletop 3d surface", "dimension":"3d", "expected_type":"asset", "expected":"American Walnut Veneer"},
+    {"query":"2d anime dialogue character portraits", "dimension":"2d", "expected_type":"source", "expected":"Kenney"},
+    {"query":"3d flying dragon rig and wings", "dimension":"3d", "expected_type":"source", "expected":"Kenney"},
+    {"query":"2d octopus boss battle sprites", "dimension":"2d", "expected_type":"source", "expected":"Kenney"},
+    {"query":"3d realistic horse galloping animations", "dimension":"3d", "expected_type":"source", "expected":"Kenney"},
+    {"query":"2d watercolor fruit puzzle icons", "dimension":"2d", "expected_type":"source", "expected":"Kenney"},
+    {"query":"3d detailed aircraft cockpit dashboard model", "dimension":"3d", "kind":"model", "expected_type":"source", "expected":"Poly Haven"}
+  ]
+}

@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+import sqlite3
 
 import typer
 from sqlalchemy import select
@@ -11,7 +12,8 @@ from .catalog import (
     CatalogError, add_resource, add_source, annotate_resource, get_resource,
     find_sources, list_sources, review_resource, search_resources,
 )
-from .db import initialize, make_engine, open_session
+from .backups import backup_catalog, restore_catalog, verify_snapshot
+from .db import db_url, initialize, make_engine, open_session
 from .evaluation import run_evaluation
 from .ingestion.batch import export_records, import_records, load_records
 from .ingestion.ambientcg import AmbientCGError, fetch_listing as fetch_ambient_listing, select_assets as select_ambient_assets
@@ -54,6 +56,36 @@ def init_db() -> None:
         initialize(engine)
         _output("Database ready.")
     except (ValueError, OperationalError) as exc:
+        _fail(exc)
+
+
+@app.command("backup")
+def backup_cmd(destination: Path = typer.Argument(..., help="New .sqlite3 or .db snapshot path")) -> None:
+    """Create a verified, consistent SQLite backup; refuse overwrites."""
+    try:
+        _output(backup_catalog(db_url(), destination), as_json=True)
+    except (ValueError, OSError, sqlite3.DatabaseError) as exc:
+        _fail(exc)
+
+
+@app.command("verify-backup")
+def verify_backup_cmd(path: Path = typer.Argument(..., help="Existing SQLite snapshot")) -> None:
+    """Check backup integrity, schema version, resource counts and SHA256."""
+    try:
+        _output(verify_snapshot(path), as_json=True)
+    except (ValueError, OSError, sqlite3.DatabaseError) as exc:
+        _fail(exc)
+
+
+@app.command("restore")
+def restore_cmd(
+    snapshot: Path = typer.Argument(..., help="Verified SQLite backup"),
+    destination: Path = typer.Option(..., "--to", help="New database path (never overwrites)"),
+) -> None:
+    """Restore SQLite backup to a *new* file; switch DB URL separately."""
+    try:
+        _output(restore_catalog(snapshot, destination), as_json=True)
+    except (ValueError, OSError, sqlite3.DatabaseError) as exc:
         _fail(exc)
 
 
