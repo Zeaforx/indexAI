@@ -106,9 +106,9 @@ ASSET_COMPASS_DB_URL=sqlite:///./recovered.sqlite3 uv run assetindex search "pix
 
 Backups use SQLite's online backup API for a consistent snapshot, then check database integrity, foreign keys, catalog tables, schema version, counts and SHA-256. Snapshot files are atomically published only when the target path is free; **no command overwrites an existing database**. Keep copies off-device and test restoration regularly. These commands intentionally support **file-backed SQLite only**. For PostgreSQL, use `pg_dump`/`pg_restore` with managed credentials and test that restore on a disposable server.
 
-By default, data is persisted in `./catalog.sqlite3` (ignored by git). The data model uses SQLAlchemy, initializes through a versioned Alembic migration, and accepts a PostgreSQL connection string through `ASSET_COMPASS_DB_URL`; a PostgreSQL deployment and restore test will be verified separately. Do not assume the local SQLite tests certify a PostgreSQL server.
+By default, data is persisted in `./catalog.sqlite3` (ignored by git). The data model uses SQLAlchemy, initializes through versioned Alembic migrations, and accepts a PostgreSQL connection string through `ASSET_COMPASS_DB_URL`. An ephemeral PostgreSQL 16 CI test now exercises initialization and search, but a **production PostgreSQL deployment, backup and restore** remain separate milestones.
 
-On PostgreSQL, migration `0003` installs an English-language GIN full-text index over titles and descriptions. Queries use `websearch_to_tsquery` to select candidates, including tag-only matches via the relational tag index. The final, explainable ranking is shared with SQLite. Session 6 adds a dedicated PostgreSQL 16 GitHub Actions integration job; **local testing still cannot certify execution against PostgreSQL**. Check the GitHub Actions result for live verification.
+On PostgreSQL, migration `0003` installs an English-language GIN full-text index over titles and descriptions. Queries use `websearch_to_tsquery` to select candidates, including tag-only matches via the relational tag index. The final, explainable ranking is shared with SQLite. Session 6's [GitHub Actions run](https://github.com/Zeaforx/indexAI/actions/runs/41673311421) **passed** against an ephemeral PostgreSQL 16 service; this does not certify production performance or recovery.
 
 For PostgreSQL, configure something like:
 
@@ -225,7 +225,7 @@ The [Session 5 report](docs/SESSION5.md) records the 110-link snapshot compositi
 
 ## Session 6 verification
 
-The [Session 6 report](docs/SESSION6.md) describes tested SQLite backup/recovery, API and MCP request throttling, input bounds, a second **23/24** task-worded search evaluation, and two GitHub Actions jobs (SQLite/tests/package plus a live PostgreSQL service migration/full-text integration test). The workflow also supports manual **Run workflow** if publishing through the GitHub integration does not trigger it. PostgreSQL **was unavailable on the local machine**, so confirm its execution through a GitHub Actions run before claiming live PostgreSQL verification. One evaluation miss is documented; this second set is not a blind real-user benchmark.
+The [Session 6 report](docs/SESSION6.md) describes tested SQLite backup/recovery, API and MCP request throttling, input bounds, a second **23/24** task-worded search evaluation, and two GitHub Actions jobs (SQLite/tests/package plus a live PostgreSQL service migration/full-text integration test). **Both CI jobs passed** in the [verified run](https://github.com/Zeaforx/indexAI/actions/runs/41673311421). The workflow also supports manual **Run workflow**. One evaluation miss is documented; this second set is not a blind real-user benchmark.
 
 ## Roadmap
 
@@ -234,8 +234,8 @@ The [Session 6 report](docs/SESSION6.md) describes tested SQLite backup/recovery
 3. **Complete locally:** PostgreSQL full-text index migration, relevance ranking, source fallback, strict filters and evaluation.
 4. **Complete locally:** Read-only REST API, MCP Streamable HTTP and stdio tools, source/rights attribution, validation and integration tests.
 5. **Complete locally:** Catalog expansion to 110 links, ambientCG and Poly Haven texture ingestion, Kenney UI/sprites/animations, safe previewable URL-health checker and expanded search evaluation.
-6. **Complete locally; CI to verify:** Recovery-safe SQLite backups, HTTP request throttling, task-worded search evaluation and CI jobs for SQLite/build and live PostgreSQL.
-7. **Next:** Review CI, add authentication and public deployment protections, provision hosting and monitor a deployed service when infrastructure is chosen.
+6. **Complete, CI green:** Recovery-safe SQLite backups, HTTP request throttling, task-worded search evaluation, CI SQLite/build verification and live PostgreSQL integration.
+7. **Next:** Add authentication and public deployment protections, provision hosting and monitor a deployed service when infrastructure is chosen.
 
 Code is MIT licensed. Third-party links, metadata and asset files remain subject to their owners' terms; the code license does not grant rights to them.
 

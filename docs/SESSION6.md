@@ -12,8 +12,8 @@ Built locally: **3 November 2026**. Session 6 keeps the **110-link** offline cat
 | REST + MCP request throttling | Sliding-window guard per actual peer IP; default 120 requests/60 seconds, `429` and `Retry-After` on excess | Yes, with deterministic time-based tests |
 | Bounded server inputs | REST/MCP string filters limited to 100 characters; normalized tags cannot exceed database column length | Yes |
 | Additional relevance evaluation | Task-worded prompts separate from original benchmark; **23/24** match expected top-five/fallback | Yes |
-| PostgreSQL integration test | Test real migration `0001`–`0004`, GIN index, full-text title lookup and tag-only candidates | In GitHub CI; **not runnable locally** |
-| GitHub Actions | SQLite/unit/API/MCP/recovery tests + package build; separate PostgreSQL 16 service test | Workflow authored; verify the published Actions run |
+| PostgreSQL integration test | Test real migration `0001`–`0004`, GIN index, full-text title lookup and tag-only candidates | **Passed** in hosted GitHub CI (no local PostgreSQL server) |
+| GitHub Actions | SQLite/unit/API/MCP/recovery tests + package build; separate PostgreSQL 16 service test | **Both jobs passed** in [run 41673311421](https://github.com/Zeaforx/indexAI/actions/runs/41673311421) |
 
 ### Backup / verification / restore
 
@@ -78,7 +78,7 @@ File: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). GitHub Actions 
 1. **SQLite, API, MCP, recovery, build** — install pinned dependencies from `uv.lock`, run the full local test suite and build both distribution artifacts.
 2. **Live PostgreSQL 16** — start an ephemeral PostgreSQL service, initialize all Alembic migrations and test GIN full-text/title search plus relational tag matches.
 
-Until the first CI run completes, report this as **configured**, not as a previously passing live PostgreSQL environment. GitHub API publication of a workflow may not itself trigger Actions; if no run appears, use **Run workflow** from the repository's Actions tab (and enable Actions if the repository currently has them disabled). Actions depend on available runners, official action versions and network availability.
+**Verified result:** [GitHub Actions run 41673311421](https://github.com/Zeaforx/indexAI/actions/runs/41673311421) completed successfully for commit `bf9e78dd7aabf2c282d800fc0775f0b0a8769133`: both the full SQLite/API/MCP/build job and the PostgreSQL 16 migration/search job passed. An initial run failed during runner setup because the action reference `astral-sh/setup-uv@v10` did not exist; it was corrected to a verified, pinned upstream commit. The workflow also supports manual **Run workflow** in GitHub Actions. This is an ephemeral CI database, not evidence of a production-ready PostgreSQL backup or deployment.
 
 ## Still outstanding
 
@@ -88,4 +88,4 @@ Until the first CI run completes, report this as **configured**, not as a previo
 4. Truly blind real-user queries and better ranking/coverage of style, compatibility and asset formats.
 5. Automatic backup scheduling, off-device storage and disaster recovery instructions tied to an actual host.
 
-**Proposed Session 7:** confirm and remediate CI issues, improve search with genuine usage examples, and prepare an authenticated, monitored deployment. Selecting a hosting target and provisioning credentials requires a deliberate deployment decision from the project owner.
+**Proposed Session 7:** improve search with genuine usage examples and prepare an authenticated, monitored deployment. Selecting a hosting target and provisioning credentials requires a deliberate deployment decision from the project owner.
